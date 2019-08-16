@@ -1,1 +1,1 @@
-discord-bot-sautax
+sautax-bot
