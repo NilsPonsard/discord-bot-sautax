@@ -1,10 +1,19 @@
-# tests pour exec
 import sys
 import io
-from commandes import *
-import lol
+import os
+import lol  # api de riot, infos sur lol
 # discord.py lib
 import discord
+
+"""
+où stocker les clefs d'api ?
+league api RGAPI-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx: fichier lolKey
+api discord : fichier secret 
+"""
+
+"""
+les ID de personnes de confiance sont stockés dans le fichier trustedIDs
+"""
 
 
 trustedIDs = []
@@ -35,12 +44,17 @@ embededHelp.set_author(name="créé par sautax#9170",
                        url="https://github.com/sautax")
 
 
-def bot_exec(message):  # fonction exec du bot (programme)
+def isTrusted(message):
     trusted = False
     for id in trustedIDs:
         if message.author.id == id:
             trusted = True
+            break
+    return trusted
 
+
+def bot_exec(message):  # fonction exec du bot (programme)
+    trusted = isTrusted(message)
     if trusted:
         out = ""
 
@@ -63,10 +77,7 @@ def bot_exec(message):  # fonction exec du bot (programme)
 
 
 def bot_eval(message):  # fonction eval du bot (expression)
-    trusted = False
-    for id in trustedIDs:
-        if message.author.id == id:
-            trusted = True
+    trusted = isTrusted(message)
     out = ""
     if trusted:
         try:
@@ -86,7 +97,6 @@ def parse(message):
     else:
         return content[0], [""]
 
-
     # create client
 client = discord.Client()
 
@@ -94,6 +104,19 @@ client = discord.Client()
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
+    if os.path.isfile("lastchannel"):  # vérifier si le fichier existe
+        with open("lastchannel", "r") as file:
+            content = file.readline()
+            if len(content) > 5:  # vérifier si il y a bien un ID
+                channel = client.get_channel(int(content))
+                async for message in channel.history(limit=200):
+                    if message.author == client.user:
+                        await message.edit(content="Sucessfully restarted :white_check_mark:")
+                        print("sucessfully restarted and sent the message")
+                        break
+    with open("lastchannel", "w") as file:
+        file.write(" ")
+    print("erased the content of the file")
 
 
 # analyse messages
@@ -103,19 +126,18 @@ async def on_message(message):
         return
     if message.content.startswith(prefix):
         # redémarre le bot en tuant la tâche : fonction critique
-        if message.content.startswith('$restart'):
-            trusted = False
-            for id in trustedIDs:
-                if message.author.id == id:
-                    trusted = True
+        if message.content.startswith('$restart') or message.content.startswith('$reload'):
+            trusted = isTrusted(message)
             if trusted:
 
-                await message.channel.send("restarting ...")
+                m = await message.channel.send("restarting :hourglass_flowing_sand: ")
                 activity = discord.Activity()
                 activity.type = discord.ActivityType.playing
                 activity.name = "redémarrer...".format(prefix)
                 await client.change_presence(
                     activity=activity, status=discord.Status.dnd)
+                with open("lastchannel", "w") as file:
+                    file.write(str(m.channel.id))
                 sys.exit(0)
             else:
                 await message.channel.send("vous n'avez pas la permission")
@@ -126,6 +148,30 @@ async def on_message(message):
         # executer du python depuis discord
         if commande == "eval":
             await message.channel.send(bot_eval(message))
+
+        if commande == "say":
+            await message.channel.send(" ".join(arguments))
+            await message.delete()
+
+        if commande == "op":
+            trusted = isTrusted(message)
+            if trusted:
+                mentions = message.mentions
+                with open("trustedIDs", "a") as file:  # appending, ajout à la fin du fichier
+                    for user in mentions:
+                        m = await message.channel.send("ajoute "+user.name+" aux administrateurs")
+                        already_added = False
+                        for i in trustedIDs:
+                            if user.id == i:
+                                already_added = True
+                        if already_added == False:
+                            file.write("\n"+str(user.id))
+                            trustedIDs.append(user.id)
+                        await m.edit(content=user.name +
+                                     " est maintenant administrateur")
+
+            else:
+                await message.channel.send("vous n'avez pas la permission")
 
         if commande == "exec":
             await message.channel.send(bot_exec(message))
@@ -144,8 +190,12 @@ async def on_message(message):
             elif len(arguments) >= 1:
 
                 if len(arguments) >= 2:
+                    if arguments[0] == "player" or arguments[0] == "stats" or arguments[0] == "stat":
+                        player = arguments[1]
+                        (content, embed) = lol.player_infos(player)
+                        await message.channel.send(content=content, embed=embed)
 
-                    if arguments[0] == "skins":
+                    elif arguments[0] == "skins" or arguments[0] == "skin":
                         nom = " ".join(arguments[1:])
                         (content, list_embed) = lol.champ_skins(
                             nom)
@@ -168,7 +218,7 @@ async def on_message(message):
                 await message.channel.send("commande inconnue")
 
         if commande == "invite":
-            await message.channel.send("inviter ce bot : \n https://discordapp.com/oauth2/authorize?client_id=607969795798728716&scope=bot&permissions=8")
+            await message.channel.send("inviter ce bot : \n https://discordapp.com/oauth2/authorize?client_id=607969795798728716&scope=bot&permissions=2084043889")
 
         if commande == "ping":
             await message.channel.send("ping : `{}`".format(client.latency))

@@ -1,7 +1,2 @@
-help : affiche l'aide
-invite : donne le lien pour inviter le bot
-ping : donne une idée de la performance actuelle du bot
-lol : catégorie de commandes liés à league of legends:
-lol rotation : affiche les champions actuellement gratuits
-lol lore <champion> : affiche le lore du champion
-lol skins <champion> : affiche tous les skins d'un champion
+gestion du bot : `help`,`invite`,`ping`
+outils league of legends : `lol rotation`,`lol lore <champion>`,`lol skins<champion>`,`lol stats <joueur>`

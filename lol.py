@@ -18,6 +18,10 @@ version = ddragon_versions[0]
 champions = json.loads(requests.get(
     "http://ddragon.leagueoflegends.com/cdn/{}/data/fr_FR/champion.json".format(version)).content)["data"]
 
+champions_by_ID = dict()
+for c in champions:
+    champions_by_ID[str(champions[c]["key"])] = champions[c]
+
 
 class LolAPI:
     def __init__(self, key):
@@ -41,6 +45,37 @@ class LolAPI:
 
 
 api = LolAPI(api_key)
+
+
+def player_infos(name):
+    result = api.request(
+        urlEnd="/lol/summoner/v4/summoners/by-name/{}".format(name))
+    if result == -1:
+        return "une erreur est survenue", None
+    else:
+        name = result["name"]
+        iconURL = "http://ddragon.leagueoflegends.com/cdn/{}/img/profileicon/{}.png".format(
+            version, result["profileIconId"])
+        ID = result["id"]
+        total_mastery_score = api.request(
+            "/lol/champion-mastery/v4/scores/by-summoner/{}".format(ID))
+        full_mastery_data = api.request(
+            "/lol/champion-mastery/v4/champion-masteries/by-summoner/{}".format(ID))
+        embed = discord.Embed(
+            title="**{}** | Niveau `{}`  | `{}` total de points de maîtrise ".format(result["name"], result["summonerLevel"], total_mastery_score), content="", colour=discord.Colour.from_rgb(255, 215, 0))
+        i = 0
+        for champ in full_mastery_data:
+            if i >= 20:
+                break
+            i += 1
+            coffre_obtenu = "`oui`"
+            if champ["chestGranted"] == False:
+                coffre_obtenu = "**non**"
+            embed.add_field(inline=False,
+                            name=str(i)+". "+champions_by_ID[str(champ["championId"])]["name"], value="`{}` points | coffre obtenu : {}".format(champ["championPoints"], coffre_obtenu))
+
+        embed.set_thumbnail(url=iconURL)
+        return "", embed
 
 
 def champ_skins(nom):
@@ -113,26 +148,26 @@ def champ_lore(nom):
 def champ_rotation():
     content = api.request("/lol/platform/v3/champion-rotations")
     if content == -1:
-        return "une erreur est survenue", [None]
+        return "une erreur est survenue", None, None
     freeChampIds = content["freeChampionIds"]
     txt = ""
     showImage = True
     names = []
 
     images = []
-    for c in champions:
-        for key in freeChampIds:
-            if int(champions[c]["key"]) == key:
-                txt = txt + champions[c]["name"] + "\n"
-                url = "http://ddragon.leagueoflegends.com/cdn/{}/img/champion/{}.png".format(
-                    version, c)
-                response = requests.get(url)
-                names.append(c)
-                if response.status_code == 200:
-                    images.append(Image.open(io.BytesIO(response.content)))
 
-                else:
-                    showImage = False
+    for key in freeChampIds:
+        c = champions_by_ID[str(key)]
+        txt = txt + c["name"] + "\n"
+        url = "http://ddragon.leagueoflegends.com/cdn/{}/img/champion/{}.png".format(
+            version, c["id"])
+        response = requests.get(url)
+        names.append(c["id"])
+        if response.status_code == 200:
+            images.append(Image.open(io.BytesIO(response.content)))
+
+        else:
+            showImage = False
     embed = discord.Embed(
         title="Rotation des champions gratuits", description=txt)
     if showImage == False:
