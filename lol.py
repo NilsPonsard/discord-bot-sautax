@@ -2,6 +2,9 @@ import requests
 import json
 import difflib
 import discord
+import os
+import io
+from PIL import Image
 
 with open("lolKey", "r") as file:
     api_key = file.readline()
@@ -101,22 +104,65 @@ def champ_lore(nom):
         url = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/{}_0.jpg".format(
             max_ratio_name)
         embed.set_image(url=url)
+        url = "http://ddragon.leagueoflegends.com/cdn/{}/img/champion/{}.png".format(
+            version, max_ratio_name)
+        embed.set_thumbnail(url=url)
         return "", embed
 
 
 def champ_rotation():
     content = api.request("/lol/platform/v3/champion-rotations")
     if content == -1:
-        return "une erreur est survenue"
+        return "une erreur est survenue", [None]
     freeChampIds = content["freeChampionIds"]
-    champions_rotation = ""
+    txt = ""
+    showImage = True
+    names = []
 
+    images = []
     for c in champions:
         for key in freeChampIds:
             if int(champions[c]["key"]) == key:
-                if champions_rotation == "":
-                    champions_rotation = champions[c]["name"]
+                txt = txt + champions[c]["name"] + "\n"
+                url = "http://ddragon.leagueoflegends.com/cdn/{}/img/champion/{}.png".format(
+                    version, c)
+                response = requests.get(url)
+                names.append(c)
+                if response.status_code == 200:
+                    images.append(Image.open(io.BytesIO(response.content)))
+
                 else:
-                    champions_rotation = champions_rotation + \
-                        " \n" + champions[c]["name"]
-    return "Rotation des champions actuelement : \n```{}```".format(champions_rotation)
+                    showImage = False
+    embed = discord.Embed(
+        title="Rotation des champions gratuits", description=txt)
+    if showImage == False:
+        return "", embed, None
+
+    columns = len(images)
+    rows = 1
+    if len(images) % 2 == 0:
+        rows = 2
+        columns = int(len(images)/2)
+    if len(images) % 3 == 0:
+        rows = 3
+        columns = int(len(images)/2)
+    width = images[0].width
+    height = images[0].height
+    out = Image.new("RGB", (int(columns*width), int(rows*height)))
+    x = 0
+    y = 0
+    for im in images:
+        if x >= columns:
+            y += 1
+            x = 0
+        out.paste(im, (x*width, y*height))
+        x += 1
+    finish = io.BytesIO()
+
+    out.save(finish, "PNG")
+
+    image_file = discord.File(io.BytesIO(
+        finish.getvalue()), filename="rotation.png")
+
+    finish.close()
+    return "", embed, image_file
