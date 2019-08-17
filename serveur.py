@@ -1,37 +1,54 @@
 import sys
 import io
 import os
+import importlib
+import time
 import lol  # api de riot, infos sur lol
+import image  # création d'images
 # discord.py lib
 import discord
 
 """
 où stocker les clefs d'api ?
 league api RGAPI-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx: fichier lolKey
-api discord : fichier secret 
+api discord : fichier secret
 """
 
 """
 les ID de personnes de confiance sont stockés dans le fichier trustedIDs
 """
+if not os.path.isfile("secret"):  # vérifier si le fichier existe
+    with open("secret", "w") as file:
+        file.write("put your discord bot token here")
+        file.close()
+    print("you need to define the discord api Key")
+
+if not os.path.isfile("trustedIDs"):  # vérifier si le fichier existe
+    with open("trustedIDs", "w") as file:
+        file.write("put your discordUser id here (access to admin commands)")
+        file.close()
+    print("you need to define the admin User Id")
 
 
 trustedIDs = []
 with open("trustedIDs", "r") as file:
     lines = file.readlines()
     for id in lines:
-        trustedIDs.append(int(id))
+        try:
+            trustedIDs.append(int(id))
+        except:
+            print("you need to define the admin User Id")
 
 prefix = "$"
 secret = ""
 
 # get token from the secret file
 with open("secret", "r") as file:
-    secret = file.readline()
+    secret = file.readline().replace("\n", "")
 
 # help page
 color = discord.Colour.from_rgb(255, 215, 0)
-#(255, 215, 0)
+# (255, 215, 0)
 
 embededHelp = discord.Embed(colour=color,
                             title="**Aide**", description="préfixe : {} \n**commandes**:".format(prefix))
@@ -91,6 +108,7 @@ def bot_eval(message):  # fonction eval du bot (expression)
 
 def parse(message):
     content = message.content[len(prefix):]
+    content.replace("\n", " ")
     content = content.split(" ")
     if len(content) > 1:
         return content[0], content[1:]
@@ -100,7 +118,21 @@ def parse(message):
     # create client
 client = discord.Client()
 
+
+async def restart(message):
+    m = await message.channel.send("restarting :hourglass_flowing_sand: ")
+    activity = discord.Activity()
+    activity.type = discord.ActivityType.playing
+    activity.name = "Redémarrer...".format(prefix)
+    await client.change_presence(
+        activity=activity, status=discord.Status.dnd)
+    with open("lastchannel", "w") as file:
+        file.write(str(m.channel.id))
+    sys.exit(0)
+
+
 # debug : successfully started bot
+
 @client.event
 async def on_ready():
     print('We have logged in as {0.user}'.format(client))
@@ -126,22 +158,37 @@ async def on_message(message):
         return
     if message.content.startswith(prefix):
         # redémarre le bot en tuant la tâche : fonction critique
-        if message.content.startswith('$restart') or message.content.startswith('$reload'):
+        if message.content.startswith('$restart'):
             trusted = isTrusted(message)
             if trusted:
-
-                m = await message.channel.send("restarting :hourglass_flowing_sand: ")
-                activity = discord.Activity()
-                activity.type = discord.ActivityType.playing
-                activity.name = "redémarrer...".format(prefix)
-                await client.change_presence(
-                    activity=activity, status=discord.Status.dnd)
-                with open("lastchannel", "w") as file:
-                    file.write(str(m.channel.id))
-                sys.exit(0)
+                await restart(message)
             else:
                 await message.channel.send("vous n'avez pas la permission")
         (commande, arguments) = parse(message)
+        if commande == "reload":
+            trusted = isTrusted(message)
+            if trusted:
+                if arguments[0] == "":
+                    await restart(message)
+                try:
+
+                    if arguments[0] == "lol":
+                        m = await message.channel.send("Reloading module lol :hourglass_flowing_sand: ")
+                        importlib.reload(lol)
+                    elif arguments[0] == "image":
+                        m = await message.channel.send("Reloading module image :hourglass_flowing_sand: ")
+                        importlib.reload(image)
+                    else:
+                        await restart(message)
+                    await m.edit(content="Module reloaded :white_check_mark:")
+
+                except:
+                    await message.channel.send("erreur")
+                    await restart(message)
+
+            else:
+                await message.channel.send("vous n'avez pas la permission")
+
         if commande == "hello":
             await message.channel.send('Hello!')
 
@@ -152,7 +199,18 @@ async def on_message(message):
         if commande == "say":
             await message.channel.send(" ".join(arguments))
             await message.delete()
+        if commande == "image":
+            if len(arguments) > 0:
 
+                if len(arguments) > 1:
+                    if arguments[0] == "mandelbrot":
+                        m = await message.channel.send("processing ...")
+
+                        (content, file) = await image.mandelbrot(int(arguments[1]))
+                        await m.delete()
+                        await message.channel.send(content=content, file=file)
+            else:
+                await message.channel.send("commande inconnue")
         if commande == "op":
             trusted = isTrusted(message)
             if trusted:
@@ -190,9 +248,14 @@ async def on_message(message):
             elif len(arguments) >= 1:
 
                 if len(arguments) >= 2:
-                    if arguments[0] == "player" or arguments[0] == "stats" or arguments[0] == "stat":
-                        player = arguments[1]
+                    if arguments[0] == "stats" or arguments[0] == "stat" or arguments[0] == "player":
+                        player = "%20".join(arguments[1:])
                         (content, embed) = lol.player_infos(player)
+                        await message.channel.send(content=content, embed=embed)
+
+                    elif arguments[0] == "masteries" or arguments[0] == "mastery":
+                        player = "%20".join(arguments[1:])
+                        (content, embed) = lol.masteries(player)
                         await message.channel.send(content=content, embed=embed)
 
                     elif arguments[0] == "skins" or arguments[0] == "skin":

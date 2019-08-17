@@ -1,2 +1,3 @@
 gestion du bot : `help`,`invite`,`ping`
-outils league of legends : `lol rotation`,`lol lore <champion>`,`lol skins<champion>`,`lol stats <joueur>`
+outils league of legends : `lol rotation`,`lol lore <champion>`,`lol skins<champion>`,`lol stats <joueur>`,`lol masteries <joueur>`
+administration : `restart`,`eval <commande>`,`exec <python script>`
