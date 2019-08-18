@@ -1,6 +1,7 @@
 import sys
 import io
 import os
+import asyncio
 import importlib
 import time
 import lol  # api de riot, infos sur lol
@@ -115,7 +116,8 @@ def parse(message):
     else:
         return content[0], [""]
 
-    # create client
+
+# create client
 client = discord.Client()
 
 
@@ -128,6 +130,7 @@ async def restart(message):
         activity=activity, status=discord.Status.dnd)
     with open("lastchannel", "w") as file:
         file.write(str(m.channel.id))
+    print("restarting")
     sys.exit(0)
 
 
@@ -154,6 +157,7 @@ async def on_ready():
 # analyse messages
 @client.event
 async def on_message(message):
+    start = time.time()
     if message.author == client.user:
         return
     if message.content.startswith(prefix):
@@ -177,6 +181,11 @@ async def on_message(message):
                         importlib.reload(lol)
                     elif arguments[0] == "image":
                         m = await message.channel.send("Reloading module image :hourglass_flowing_sand: ")
+                        print("terminating quee")
+                        image.mandelbrot_in_q.put(None)
+                        image.mandelbrot_out_q.put(None)
+                        print("queue terminated")
+                        image.mandelbrot_t.join()
                         importlib.reload(image)
                     else:
                         await restart(message)
@@ -206,9 +215,8 @@ async def on_message(message):
                     if arguments[0] == "mandelbrot":
                         m = await message.channel.send("processing ...")
 
-                        (content, file) = await image.mandelbrot(int(arguments[1]))
-                        await m.delete()
-                        await message.channel.send(content=content, file=file)
+                        await image.mandelbrot(int(arguments[1]), message, m, client)
+
             else:
                 await message.channel.send("commande inconnue")
         if commande == "op":
@@ -241,9 +249,7 @@ async def on_message(message):
 
             if arguments[0] == "rotation":  # rotation des champions gratuits
                 sent_message = await message.channel.send(content="processing...")
-                (content, embed, file) = lol.champ_rotation()
-                await message.channel.send(content=content, embed=embed, file=file)
-                await sent_message.delete()
+                await lol.champ_rotation(message, sent_message, client)
 
             elif len(arguments) >= 1:
 
@@ -260,10 +266,7 @@ async def on_message(message):
 
                     elif arguments[0] == "skins" or arguments[0] == "skin":
                         nom = " ".join(arguments[1:])
-                        (content, list_embed) = lol.champ_skins(
-                            nom)
-                        for embed in list_embed:
-                            await message.channel.send(content=content, embed=embed)
+                        await lol.champ_skins(message, client, nom)
 
                     elif arguments[0] == "lore":
                         nom = " ".join(arguments[1:])
@@ -285,9 +288,16 @@ async def on_message(message):
 
         if commande == "ping":
             await message.channel.send("ping : `{}`".format(client.latency))
+        taken = time.time()-start
+        print("{} {} : {}s".format(commande, arguments, str(taken)[:6]))
 
+
+@client.event
+async def on_message_edit(before, after):
+    await on_message(after)
 activity = discord.Activity()
 activity.type = discord.ActivityType.listening
 activity.name = "quelque chose | {}help".format(prefix)
 client.activity = activity
+
 client.run(secret)

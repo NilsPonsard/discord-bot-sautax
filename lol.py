@@ -4,6 +4,8 @@ import difflib
 import discord
 import os
 import time
+import queue
+import threading
 import io
 from PIL import Image
 
@@ -219,8 +221,29 @@ def masteries(name):
         return "", embed
 
 
-def champ_skins(nom):
+champ_skins_q = queue.Queue()
+
+
+async def champ_skins_loop(client):
+    start = time.time()
+    if not champ_skins_q.empty():
+        q = champ_skins_q.get()
+        if q == None:
+            return
+        else:
+            (embed,  message) = q
+            await message.channel.send(content="", embed=embed)
+            client.loop.create_task(champ_skins_loop(client))
+
+    else:
+        client.loop.create_task(champ_skins_loop(client))
+    end = str(time.time()-start)[:6]
+    print("send {}".format(end))
+
+
+def champ_skins_run(nom, message):
     # trouver le bon champion
+    start = time.time()
     max_ratio = 0
     max_ratio_name = ""
     for c in champions:
@@ -252,8 +275,16 @@ def champ_skins(nom):
             url = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/{}_{}.jpg".format(
                 max_ratio_name, s["num"])
             embed.set_image(url=url)
-            list_embed.append(embed)
-        return "", list_embed
+            champ_skins_q.put((embed, message))
+        champ_skins_q.put(None)
+    end = str(time.time()-start)[:6]
+    print("lol skins : {}".format(end))
+
+
+async def champ_skins(message, client, nom):
+    t = threading.Thread(target=champ_skins_run, args=(nom, message))
+    t.start()
+    client.loop.create_task(champ_skins_loop(client))
 
 
 def champ_lore(nom):
@@ -291,7 +322,31 @@ def champ_lore(nom):
         return "", embed
 
 
-def champ_rotation():
+champ_rotation_q = queue.Queue()
+
+
+def champ_rotation_run(message, sent_message):
     (names, file) = manager.get()
     embed = discord.Embed(title="Rotation des champions", description=names)
-    return "", embed, file
+    champ_rotation_q.put((embed, file, message, sent_message))
+
+
+async def champ_rotation_loop(client):
+    if not champ_rotation_q.empty():
+        q = champ_rotation_q.get()
+        if q == None:
+            return
+        else:
+            (embed, file, message, sent_message) = q
+
+            await sent_message.delete()
+            await message.channel.send(content="", embed=embed, file=file)
+    else:
+        client.loop.create_task(champ_rotation_loop(client))
+
+
+async def champ_rotation(message, sent_message, client):
+    t = threading.Thread(target=champ_rotation_run,
+                         args=(message, sent_message))
+    t.start()
+    client.loop.create_task(champ_rotation_loop(client))
