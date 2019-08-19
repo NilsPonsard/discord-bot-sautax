@@ -6,12 +6,13 @@ import discord
 import time
 import threading
 import queue
+import utils
 
 mandelbrot_in_q = queue.Queue(5)
 mandelbrot_out_q = queue.Queue(5)
 
 
-def mandelbrot_run(n, message, sent_message):
+def mandelbrot_run(n):
     start = time.time()
     max_size = 500
     imageArray = []
@@ -39,11 +40,16 @@ def mandelbrot_run(n, message, sent_message):
     dfile = discord.File(file, "image.png")
     passed = str(time.time()-start)[0:6]
     finished = time.time()-start
-    mandelbrot_out_q.put((dfile, message, sent_message, finished))
-    time.sleep(1)
+    return "finished in {} seconds".format(finished), None, dfile, None
 
 
-async def mandelbrot(n, message, sent_message, client):
+mandelbrot_request = utils.Threaded_request(mandelbrot_run)
+
+
+async def mandelbrot(n, message,  client):
+    await mandelbrot_request.setup(client, message, n)
+
+    """
     mandelbrot_in_q.put((n, message, sent_message))
     mandelbrot_t = threading.Thread(
         target=mandelbrot_run, args=(n, message, sent_message))
@@ -67,3 +73,4 @@ async def mandelbrot_loop(client):
             await message.channel.send("Done in {}s".format(finished), file=dfile)
     else:
         client.loop.create_task(mandelbrot_loop(client))
+"""

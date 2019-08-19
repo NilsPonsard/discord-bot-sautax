@@ -231,8 +231,8 @@ async def champ_skins_loop(client):
         if q == None:
             return
         else:
-            (embed,  message) = q
-            await message.channel.send(content="", embed=embed)
+            (content, embed,  message) = q
+            await message.channel.send(content=content, embed=embed)
             client.loop.create_task(champ_skins_loop(client))
 
     else:
@@ -266,6 +266,7 @@ def champ_skins_run(nom, message):
                                   content=str(r.content)+max_ratio_name)
             return "Erreur lors de l'obtention des données", [embed]
         skins = json.loads(r.content)["data"][max_ratio_name]["skins"]
+
         list_embed = []
         x = 1
         for s in skins:
@@ -275,7 +276,20 @@ def champ_skins_run(nom, message):
             url = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/{}_{}.jpg".format(
                 max_ratio_name, s["num"])
             embed.set_image(url=url)
-            champ_skins_q.put((embed, message))
+            champ_skins_q.put((None, embed, message))
+            """
+        list_url = []
+        x = 1
+        txt = ""
+        for s in skins:
+            embed = discord.Embed(
+                title=s["name"], description="")
+            url = "http://ddragon.leagueoflegends.com/cdn/img/champion/splash/{}_{}.jpg".format(
+                max_ratio_name, s["num"])
+            txt = txt + "{}/{} ".format(x, len(skins)) + url + "\n"
+            x += 1
+
+        champ_skins_q.put((txt, None, message))"""
         champ_skins_q.put(None)
     end = str(time.time()-start)[:6]
     print("lol skins : {}".format(end))

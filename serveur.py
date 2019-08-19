@@ -181,11 +181,6 @@ async def on_message(message):
                         importlib.reload(lol)
                     elif arguments[0] == "image":
                         m = await message.channel.send("Reloading module image :hourglass_flowing_sand: ")
-                        print("terminating quee")
-                        image.mandelbrot_in_q.put(None)
-                        image.mandelbrot_out_q.put(None)
-                        print("queue terminated")
-                        image.mandelbrot_t.join()
                         importlib.reload(image)
                     else:
                         await restart(message)
@@ -213,9 +208,8 @@ async def on_message(message):
 
                 if len(arguments) > 1:
                     if arguments[0] == "mandelbrot":
-                        m = await message.channel.send("processing ...")
 
-                        await image.mandelbrot(int(arguments[1]), message, m, client)
+                        await image.mandelbrot(int(arguments[1]), message,  client)
 
             else:
                 await message.channel.send("commande inconnue")
