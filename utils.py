@@ -15,9 +15,10 @@ class Threaded_request(threading.Thread):
         the function must return 4 things (can be None) : content, embed, file,files
         """
         self.q.put(self.function(*self.args))
-        return super().run()
+        # return super().run()
 
     async def setup(self, client, message, *args):
+        self.__init__(self.function)
         self.args = args
         self.start()
         sent_message = await message.channel.send(content="processing ...")

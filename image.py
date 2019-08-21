@@ -7,13 +7,21 @@ import time
 import threading
 import queue
 import utils
+import subprocess
 
 mandelbrot_in_q = queue.Queue(5)
 mandelbrot_out_q = queue.Queue(5)
 
 
 def mandelbrot_run(n):
+
     start = time.time()
+    x = 1000
+    y = 1000
+    path = "mandelbrot/mandelbrot {} {} {}".format(n, x, y)
+    p = subprocess.Popen("./" + path, shell=True)
+    p.wait()
+    """
     max_size = 500
     imageArray = []
     sizeone = (max_size-1)
@@ -36,17 +44,14 @@ def mandelbrot_run(n):
     print(checkpoint)
     file = io.BytesIO()
     image.save(file, "PNG")
-    file = io.BytesIO(file.getvalue())
-    dfile = discord.File(file, "image.png")
+    file = io.BytesIO(file.getvalue())"""
+    dfile = discord.File(path + ".png", "image.png")
     passed = str(time.time()-start)[0:6]
-    finished = time.time()-start
-    return "finished in {} seconds".format(finished), None, dfile, None
-
-
-mandelbrot_request = utils.Threaded_request(mandelbrot_run)
+    return "finished in {} seconds".format(passed), None, dfile, None
 
 
 async def mandelbrot(n, message,  client):
+    mandelbrot_request = utils.Threaded_request(mandelbrot_run)
     await mandelbrot_request.setup(client, message, n)
 
     """

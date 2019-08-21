@@ -248,7 +248,9 @@ async def on_message(message):
             elif len(arguments) >= 1:
 
                 if len(arguments) >= 2:
-                    if arguments[0] == "stats" or arguments[0] == "stat" or arguments[0] == "player":
+                    if arguments[0] == "item" or arguments[0] == "items":
+                        await lol.items(arguments[1:], message, client)
+                    elif arguments[0] == "stats" or arguments[0] == "stat" or arguments[0] == "player":
                         player = "%20".join(arguments[1:])
                         (content, embed) = lol.player_infos(player)
                         await message.channel.send(content=content, embed=embed)
@@ -264,9 +266,7 @@ async def on_message(message):
 
                     elif arguments[0] == "lore":
                         nom = " ".join(arguments[1:])
-                        (content, embed) = lol.champ_lore(
-                            nom)
-                        await message.channel.send(content=content, embed=embed)
+                        await lol.champ_lore(client, message, nom)
 
                     else:
                         await message.channel.send("commande inconnue")

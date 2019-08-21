@@ -6,6 +6,7 @@ import os
 import time
 import queue
 import threading
+import utils
 import io
 from PIL import Image
 
@@ -26,6 +27,28 @@ version = ddragon_versions[0]
 
 champions = json.loads(requests.get(
     "http://ddragon.leagueoflegends.com/cdn/{}/data/fr_FR/champion.json".format(version)).content)["data"]
+
+items = json.loads(requests.get(
+    "http://ddragon.leagueoflegends.com/cdn/{}/data/fr_FR/item.json".format(version)).content)
+tree_item = items["tree"]
+items = items["data"]
+items_by_id = items
+l = []
+
+for i in items:
+    l.append(items[i])
+items_list = l
+
+items_by_tag = dict()
+for item in items_list:
+    for tag in item["tags"]:
+        if not tag in items_by_tag.keys():
+            items_by_tag[tag] = []
+        items_by_tag[tag].append(item)
+tags_items = []
+for tag in items_by_tag:
+    tags_items.append(tag)
+
 
 champions_by_ID = dict()
 for c in champions:
@@ -301,7 +324,12 @@ async def champ_skins(message, client, nom):
     client.loop.create_task(champ_skins_loop(client))
 
 
-def champ_lore(nom):
+async def champ_lore(client, message, nom):
+    champ_lore_t = utils.Threaded_request(champ_lore_run)
+    await champ_lore_t.setup(client, message, nom)
+
+
+def champ_lore_run(nom):
     max_ratio = 0
     max_ratio_name = ""
     for c in champions:
@@ -315,7 +343,7 @@ def champ_lore(nom):
             if ratio == 1:
                 break
     if max_ratio < 0.6:
-        return "Champion non trouvé", None
+        return "Champion non trouvé", None, None
     else:
         r = requests.get(
             "http://ddragon.leagueoflegends.com/cdn/{}/data/fr_FR/champion/{}.json".format(version, max_ratio_name))
@@ -323,7 +351,7 @@ def champ_lore(nom):
             embed = discord.Embed(title=str(r.status_code),
                                   content=str(r.content)+max_ratio_name)
             print(max_ratio_name)
-            return "Erreur lors de l'obtention des données", embed
+            return "Erreur lors de l'obtention des données", embed, None, None
         data = json.loads(r.content)["data"][max_ratio_name]
         embed = discord.Embed(
             title=data["name"], description=data["lore"])
@@ -333,7 +361,7 @@ def champ_lore(nom):
         url = "http://ddragon.leagueoflegends.com/cdn/{}/img/champion/{}.png".format(
             version, max_ratio_name)
         embed.set_thumbnail(url=url)
-        return "", embed
+        return "", embed, None, None
 
 
 champ_rotation_q = queue.Queue()
@@ -364,3 +392,97 @@ async def champ_rotation(message, sent_message, client):
                          args=(message, sent_message))
     t.start()
     client.loop.create_task(champ_rotation_loop(client))
+
+
+async def items(arguments, message, client):
+    sous_commande = arguments[0]
+    nom = " ".join(arguments[1:])
+    if len(arguments) >= 2:
+        if sous_commande in ["item", "stat", "stats"]:
+            max_ratio = 0
+            max_ratio_item_tag = ""  # afficher les stats d'un item
+            for i in items_by_id:
+                item = items_by_id[i]
+                colloq = item["colloq"].split(";")
+                for c in colloq:
+                    ratio = difflib.SequenceMatcher(
+                        None, c.lower(), nom.lower()).ratio()
+                    if ratio > max_ratio:
+                        max_ratio = ratio
+                        max_ratio_item_tag = i
+
+            item = items_by_id[max_ratio_item_tag]
+            embed = discord.Embed(title="{} : {} PO ({} PO)".format(
+                item["name"], item["gold"]["total"], item["gold"]["base"]))
+            embed.add_field(name="Description", value=item["plaintext"])
+            if "from" in item.keys():  # si il est obtenu à partir d'autres items
+                f = ""
+                for i in item["from"]:
+                    f = f + "{} :`{} PO`\n".format(items_by_id[i]
+                                                   ["name"], items_by_id[i]["gold"]["total"])
+                embed.add_field(name="Craft", value=f)
+
+            description = item["description"]
+            # interprétation des différents tags
+            description = description.replace("<br>", "\n")
+            description = description.replace("<groupLimit>", "__")
+            description = description.replace("</groupLimit>", "__")
+            description = description.replace("<unique>", "**")
+            description = description.replace("</unique>", "**")
+            description = description.replace("<active>", "__**")
+            description = description.replace("</active>", "**__")
+            description = description.replace("<stats>", "```")
+            description = description.replace("</stats>", "```")
+            description = description.replace("<rules>", "__")
+            description = description.replace("</rules>", "__")
+            description = description.replace("<passive>", "**")
+            description = description.replace("</passive>", "**")
+            description = description.replace("<consumable>", "**")
+            description = description.replace("</consumable>", "**")
+            description = description.replace("<u>", "__")
+            description = description.replace("</u>", "__")
+            embed.add_field(name="Détails", value=description + "\n\n")
+
+            if "into" in item.keys():
+                v = ""
+                for i in item["into"]:
+                    v = v + "-> {} :`{} PO`\n".format(items_by_id[i]
+                                                      ["name"], items_by_id[i]["gold"]["total"])
+                embed.add_field(name="Permet d'obtenir", value=v)
+            embed.set_thumbnail(
+                url="http://ddragon.leagueoflegends.com/cdn/{}/img/item/{}.png".format(version, max_ratio_item_tag))
+            await message.channel.send(content="", embed=embed)
+
+        if sous_commande == "search":  # chercher un item
+            result = []
+            for item in items_list:
+                if nom in item["colloq"]:
+                    result.append(item)
+            embed = discord.Embed(
+                title="Résultat de la recherche", content="test")
+            for item in result:
+                # print(item["name"], item["plaintext"])
+                embed.add_field(name="{}: {} PO".format(
+                    item["name"], item["gold"]["total"]), value="> {}".format(item["plaintext"]), inline=False)
+            await message.channel.send(content="", embed=embed)
+    # afficher par catégorie
+    if sous_commande in ["category", "categories", "catégories", "catégorie", "categorie"]:
+        print(sous_commande, len(arguments))
+        if len(arguments) == 1:
+            embed = discord.Embed(title="Catégories disponibles")
+            for t in tree_item:
+                embed.add_field(name=t["header"].capitalize(
+                ), value=" | ".join(t["tags"]).lower(), inline=False)
+            await message.channel.send(content="", embed=embed)
+        if len(arguments) == 2:
+            for tag in tags_items:
+                if tag.lower() == arguments[1].lower():
+                    txt = " "
+                    embed = discord.Embed(
+                        title="Catégorie : {}".format(tag), description=txt)
+                    for item in items_by_tag[tag]:
+                        embed.add_field(name=item["name"], value="{} PO".format(
+                            item["gold"]["total"]), inline=False)
+                        #txt = txt+ " - **{}** : *{} PO*".format(item["name"],item["gold"]["total"]) + "\n"
+                    print(txt, len(txt))
+                    await message.channel.send(content="", embed=embed)
