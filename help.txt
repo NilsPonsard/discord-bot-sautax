@@ -1,4 +1,4 @@
 gestion du bot : `help`,`invite`,`ping`
-outils league of legends : `lol rotation`,`lol lore <champion>`,`lol skins<champion>`,`lol stats <joueur>`,`lol masteries <joueur>`
+outils league of legends : `lol rotation`,`lol lore <champion>`,`lol skins<champion>`,`lol stats <joueur>`,`lol masteries <joueur>`,`lol item search <item>`,`lol item category`,`lol item category <category>`,`lol item stat <item>`
 administration : `restart`,`eval <commande>`,`exec <python script>`
 image : `image mandelbrot <iterations>`
