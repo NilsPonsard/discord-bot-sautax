@@ -418,8 +418,8 @@ async def items(arguments, message, client):
             if "from" in item.keys():  # si il est obtenu à partir d'autres items
                 f = ""
                 for i in item["from"]:
-                    f = f + "{} :`{} PO`\n".format(items_by_id[i]
-                                                   ["name"], items_by_id[i]["gold"]["total"])
+                    f = f + "> + {} :`{} PO`\n".format(items_by_id[i]
+                                                       ["name"], items_by_id[i]["gold"]["total"])
                 embed.add_field(name="Craft", value=f)
 
             description = item["description"]
@@ -446,8 +446,8 @@ async def items(arguments, message, client):
             if "into" in item.keys():
                 v = ""
                 for i in item["into"]:
-                    v = v + "-> {} :`{} PO`\n".format(items_by_id[i]
-                                                      ["name"], items_by_id[i]["gold"]["total"])
+                    v = v + "> -> {} :`{} PO`\n".format(items_by_id[i]
+                                                        ["name"], items_by_id[i]["gold"]["total"])
                 embed.add_field(name="Permet d'obtenir", value=v)
             embed.set_thumbnail(
                 url="http://ddragon.leagueoflegends.com/cdn/{}/img/item/{}.png".format(version, max_ratio_item_tag))

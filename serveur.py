@@ -283,7 +283,8 @@ async def on_message(message):
         if commande == "ping":
             await message.channel.send("ping : `{}`".format(client.latency))
         taken = time.time()-start
-        print("{} {} : {}s".format(commande, arguments, str(taken)[:6]))
+        print("{} used command {} with args {} and finished in {}s".format(message.author.name,
+                                                                           commande, arguments, str(taken)[:6]))
 
 
 @client.event

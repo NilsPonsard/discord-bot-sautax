@@ -4,4 +4,4 @@ secret
 trustedIDs
 test.py
 lastchannel
-mandelbrot/*.png
+image/mandelbrot/*.png
